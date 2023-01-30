@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -45,20 +46,64 @@ func reader(conn *websocket.Conn) {
 func serveWs(c *gin.Context) {
 	w := c.Writer
 	r := c.Request
-	fmt.Println(r.Host)
+	fmt.Println(w)
+	fmt.Println(r)
+
 	// switch to websocket
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-	}
+	// ws, err := upgrader.Upgrade(w, r, nil)
+	// if err != nil {
+	// 	log.Println(err)
+	// }
 
 	// listen WebSocket message
-	reader(ws)
+	// reader(ws)
+}
+
+// Socket handler
+func SocketHandler(c *gin.Context) {
+	upGrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+
+	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		closeSocketErr := ws.Close()
+		if closeSocketErr != nil {
+			panic(err)
+		}
+	}()
+
+	for {
+		msgType, msg, err := ws.ReadMessage()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Message Type: %d, Message: %s\n", msgType, string(msg))
+		err = ws.WriteJSON(struct {
+			Reply string `json:"reply"`
+		}{
+			Reply: "Echo...",
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func main() {
 	router := gin.New()
 	router.Use(gin.Recovery())
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	router.Use(cors.New(config))
 	err := router.SetTrustedProxies(nil)
 	if err != nil {
 		panic(err)
@@ -71,6 +116,6 @@ func main() {
 		c.String(http.StatusOK, "Hello %s %s", firstname, lastname)
 	})
 
-	router.GET("/ws", serveWs)
+	router.GET("/ws", SocketHandler)
 	router.Run(":3000")
 }
