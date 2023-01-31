@@ -87,11 +87,12 @@ func SocketHandler(c *gin.Context) {
 			panic(err)
 		}
 		fmt.Printf("Message Type: %d, Message: %s\n", msgType, string(msg))
-		err = ws.WriteJSON(struct {
-			Reply string `json:"reply"`
-		}{
-			Reply: "Echo...",
-		})
+		ws.WriteMessage(msgType, msg)
+		// err = ws.WriteJSON(struct {
+		// 	Reply string `json:"reply"`
+		// }{
+		// 	Reply: "Echo...",
+		// })
 		if err != nil {
 			panic(err)
 		}
